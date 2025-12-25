@@ -96,6 +96,14 @@ const DECKS = {
   },
 };
 
+const REVIEW_PREF_KEY = "flashcards_review_open";
+
+const getStoredReviewPref = () => {
+  if (typeof window === "undefined") return false;
+  const stored = window.localStorage.getItem(REVIEW_PREF_KEY);
+  return stored ? stored === "true" : false;
+};
+
 function shuffle<T>(arr: T[]): T[] {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -128,7 +136,7 @@ function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [history, setHistory] = useState<{ card: Card; chosen: string; correct: boolean }[]>([]);
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(() => getStoredReviewPref());
   const [countdown, setCountdown] = useState<number | null>(null);
 
   const startGame = (deckKey: keyof typeof DECKS) => {
@@ -139,8 +147,8 @@ function App() {
     setSelected(null);
     setShowAnswer(false);
     setHistory([]);
-    setReviewOpen(false);
     setCountdown(null);
+    setReviewOpen(getStoredReviewPref());
   };
 
   const newGame = () => {
@@ -151,8 +159,8 @@ function App() {
     setSelected(null);
     setShowAnswer(false);
     setHistory([]);
-    setReviewOpen(false);
     setCountdown(null);
+    setReviewOpen(getStoredReviewPref());
   };
 
   const current = deck[index];
@@ -184,6 +192,18 @@ function App() {
       // nothing else for now
     }
   }, [index, deck.length]);
+
+  useEffect(() => {
+    if (activeDeckKey && deck.length > 0 && isFinished) {
+      setReviewOpen(true);
+    }
+  }, [activeDeckKey, deck.length, isFinished]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!activeDeckKey || isFinished) return; // only persist during active play
+    window.localStorage.setItem(REVIEW_PREF_KEY, String(reviewOpen));
+  }, [reviewOpen, activeDeckKey, isFinished]);
 
   useEffect(() => {
     if (!showAnswer || isFinished) {
@@ -279,35 +299,23 @@ function App() {
           </section>
 
           <div className="action-row">
-            <div className="feedback">
-              {showAnswer ? (
-                <div>
-                  {selected === current.romaji ? (
-                    <div className="feedback--correct">Correct! ✅</div>
-                  ) : (
-                    <div className="feedback--incorrect">Incorrect — correct answer: {current.romaji}</div>
-                  )}
-                </div>
-              ) : (
-                <div className="feedback__placeholder" aria-hidden="true">
-                  &nbsp;
-                </div>
-              )}
-            </div>
-
-            <div className="actions">
-              <button
-                className="button"
-                onClick={next}
-                disabled={!showAnswer}
-              >
-                {showAnswer && countdown !== null
-                  ? `${index + 1 >= deck.length ? "Finish" : "Next"} (${countdown})`
-                  : index + 1 >= deck.length
-                    ? "Finish"
-                    : "Next"}
-              </button>
-            </div>
+            {showAnswer ? (
+              <div className="actions">
+                <button
+                  className="button"
+                  onClick={next}
+                  disabled={!showAnswer}
+                >
+                  {showAnswer && countdown !== null
+                    ? `${index + 1 >= deck.length ? "Finish" : "Next"} (${countdown})`
+                    : index + 1 >= deck.length
+                      ? "Finish"
+                      : "Next"}
+                </button>
+              </div>
+            ) : (
+              <div className="actions actions--placeholder" aria-hidden="true" />
+            )}
           </div>
         </main>
       )}
@@ -320,7 +328,7 @@ function App() {
           </p>
 
           <div className="finished__actions">
-            <button onClick={newGame} className="button">
+            <button onClick={() => activeDeckKey && startGame(activeDeckKey)} className="button">
               Play again
             </button>
           </div>
