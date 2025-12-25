@@ -18,6 +18,23 @@
   margin: 0;
 }
 
+.deck-picker {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.deck-picker__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.deck-picker__button {
+  width: 100%;
+  justify-self: start;
+}
+
 .app__stats {
   display: flex;
   align-items: center;
@@ -102,10 +119,10 @@
 .action-row {
   margin-top: 18px;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .feedback--correct {
@@ -116,9 +133,20 @@
   color: #b00020;
 }
 
+.feedback {
+  min-height: 24px;
+  text-align: center;
+}
+
+.feedback__placeholder {
+  min-height: 24px;
+}
+
 .actions {
   display: flex;
   gap: 8px;
+  justify-content: center;
+  width: 100%;
 }
 
 .finished {
@@ -133,17 +161,51 @@
   margin-top: 16px;
 }
 
+.review--persistent {
+  margin-top: 32px;
+}
+
 .review__list {
-  padding-left: 20px;
+  padding-left: 0;
+  margin: 0;
+  list-style: none;
 }
 
 .review__item {
   margin: 8px 0;
 }
 
+.review__empty {
+  color: #4b5563;
+}
+
 .review__character {
   font-size: 20px;
   margin-right: 8px;
+}
+
+.review__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.review__header h3 {
+  margin: 0;
+}
+
+.review__arrow {
+  transition: transform 0.15s ease;
+  display: inline-block;
+  font-size: 16px;
+}
+
+.review__arrow--open {
+  transform: rotate(90deg);
 }
 
 .footer {
