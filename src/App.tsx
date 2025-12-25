@@ -248,8 +248,8 @@ function App() {
       {activeDeckKey && !isFinished && current && (
         <main>
           <section className="question">
-            <div className="question__character">{current.hiragana}</div>
             <div className="question__prompt">What is the romaji for this hiragana?</div>
+            <div className="question__character">{current.hiragana}</div>
           </section>
 
           <section className="choices">

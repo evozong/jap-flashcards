@@ -68,15 +68,16 @@
 }
 
 .question {
-  text-align: center;
   margin-bottom: 16px;
 }
 
 .question__character {
+  text-align: center;
   font-size: 96px;
 }
 
 .question__prompt {
+  text-align: left;
   color: #4b5563;
   margin-top: 8px;
 }
