@@ -128,130 +128,115 @@ function App() {
   }, [index, deck.length]);
 
   return (
-<>
-	<div style={{ fontFamily: "Inter, Roboto, system-ui, -apple-system, 'Segoe UI', Arial", padding: 20 }}>
-		<header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-			<h1 style={{ margin: 0 }}>Hiragana Flashcards</h1>
-			<div>
-				<strong>Round</strong> {Math.min(index + 1, deck.length)}/{deck.length}
-				<span style={{ marginLeft: 12 }}>
-					<strong>Score</strong> {score}
-				</span>
-				<button style={{ marginLeft: 12, padding: "6px 10px" }} onClick={newGame}>
-					New Game
-				</button>
-			</div>
-		</header>
+    <div className="app">
+      <header className="app__header">
+        <h1 className="app__title">Flashcards</h1>
+        <div className="app__stats">
+          <span className="app__stat">
+            <strong>Round</strong> {Math.min(index + 1, deck.length)}/{deck.length}
+          </span>
+          <span className="app__stat">
+            <strong>Score</strong> {score}
+          </span>
+          <button className="button" onClick={newGame}>
+            New Game
+          </button>
+        </div>
+      </header>
 
-		{!isFinished && current && (
-			<main>
-				<section style={{ textAlign: "center", marginBottom: 16 }}>
-					<div style={{ fontSize: 96 }}>{current.hiragana}</div>
-					<div style={{ color: "#666", marginTop: 8 }}>What is the romaji for this hiragana?</div>
-				</section>
+      {!isFinished && current && (
+        <main>
+          <section className="question">
+            <div className="question__character">{current.hiragana}</div>
+            <div className="question__prompt">What is the romaji for this hiragana?</div>
+          </section>
 
-				<section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
-					{choices.map((c) => {
-						const isCorrect = c === current.romaji;
-						const isSelected = c === selected;
+          <section className="choices">
+            {choices.map((c) => {
+              const isCorrect = c === current.romaji;
+              const isSelected = c === selected;
 
-						let background = "white";
-						if (showAnswer && isCorrect) background = "#daf7dc"; // green-ish
-						else if (isSelected && showAnswer && !isCorrect) background = "#ffdede"; // red-ish
+              const choiceClass = [
+                "choice-btn",
+                showAnswer && isCorrect ? "choice-btn--correct" : "",
+                showAnswer && isSelected && !isCorrect ? "choice-btn--incorrect" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
 
-						return (
-							<button
-								key={c}
-								onClick={() => handleChoose(c)}
-								disabled={showAnswer}
-								style={{
-									padding: 12,
-									fontSize: 18,
-									borderRadius: 8,
-									border: "1px solid #ddd",
-									background,
-									cursor: showAnswer ? "default" : "pointer"
-								}}
-							>
-								{c}
-							</button>
-						);
-					})}
-				</section>
+              return (
+                <button
+                  key={c}
+                  onClick={() => handleChoose(c)}
+                  disabled={showAnswer}
+                  className={choiceClass}
+                >
+                  {c}
+                </button>
+              );
+            })}
+          </section>
 
-				<div style={{ marginTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<div>
-						{showAnswer && (
-							<div>
-								{selected === current.romaji ? (
-									<div style={{ color: "green" }}>Correct! ✅</div>
-								) : (
-									<div style={{ color: "#b00020" }}>Incorrect — correct answer: {current.romaji}</div>
-								)}
-							</div>
-						)}
-					</div>
+          <div className="action-row">
+            <div className="feedback">
+              {showAnswer && (
+                <div>
+                  {selected === current.romaji ? (
+                    <div className="feedback--correct">Correct! ✅</div>
+                  ) : (
+                    <div className="feedback--incorrect">Incorrect — correct answer: {current.romaji}</div>
+                  )}
+                </div>
+              )}
+            </div>
 
-					<div>
-						<button
-							onClick={() => {
-								// reveal answer (mark incorrect if not selected)
-								if (!showAnswer) {
-									// record an incorrect choice if nothing selected
-									if (!selected) {
-										setHistory((h) => [...h, { card: current, chosen: "", correct: false }]);
-										setShowAnswer(true);
-									}
-								}
-							}}
-							style={{ marginRight: 8, padding: "8px 12px" }}
-						>
-							Reveal Answer
-						</button>
+            <div className="actions">
+              <button
+                className="button"
+                onClick={next}
+                disabled={!showAnswer}
+              >
+                {index + 1 >= deck.length ? "Finish" : "Next"}
+              </button>
+            </div>
+          </div>
+        </main>
+      )}
 
-						<button onClick={next} disabled={!showAnswer} style={{ padding: "8px 12px" }}>
-							{index + 1 >= deck.length ? "Finish" : "Next"}
-						</button>
-					</div>
-				</div>
-			</main>
-		)}
+      {isFinished && (
+        <section className="finished">
+          <h2>Round complete</h2>
+          <p>
+            You scored <strong>{score}</strong> out of <strong>{deck.length}</strong>.
+          </p>
 
-		{isFinished && (
-			<section style={{ marginTop: 24 }}>
-				<h2>Round complete</h2>
-				<p>
-					You scored <strong>{score}</strong> out of <strong>{deck.length}</strong>.
-				</p>
+          <div className="finished__actions">
+            <button onClick={newGame} className="button">
+              Play again
+            </button>
+          </div>
 
-				<div style={{ marginTop: 12 }}>
-					<button onClick={newGame} style={{ padding: "8px 12px", marginRight: 8 }}>
-						Play again
-					</button>
-				</div>
+          <details className="review">
+            <summary>Review answers</summary>
+            <ol className="review__list">
+              {history.map((h, i) => (
+                <li key={i} className="review__item">
+                  <span className="review__character">{h.card.hiragana}</span>
+                  <span>
+                    Chosen: <strong>{h.chosen || "(no answer)"}</strong> — Correct: <strong>{h.card.romaji}</strong>
+                    {h.correct ? " ✅" : " ❌"}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </details>
+        </section>
+      )}
 
-				<details style={{ marginTop: 16 }}>
-					<summary>Review answers</summary>
-					<ol>
-						{history.map((h, i) => (
-							<li key={i} style={{ margin: "8px 0" }}>
-								<span style={{ fontSize: 20, marginRight: 8 }}>{h.card.hiragana}</span>
-								<span>
-									Chosen: <strong>{h.chosen || "(no answer)"}</strong> — Correct: <strong>{h.card.romaji}</strong>
-									{h.correct ? " ✅" : " ❌"}
-								</span>
-							</li>
-						))}
-					</ol>
-				</details>
-			</section>
-		)}
-
-		<footer style={{ marginTop: 36, color: "#666" }}>
-			Tip: you can edit the HIRAGANA array in src/App.tsx to add dakuten (e.g. が, ぎ) or more kana.
-		</footer>
-	</div>
-</>
+      <footer className="footer">
+        Tip: you can edit the HIRAGANA array in src/App.tsx to add dakuten (e.g. が, ぎ) or more kana.
+      </footer>
+    </div>
   )
 }
 

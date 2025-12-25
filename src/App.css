@@ -1,42 +1,153 @@
-#root {
-  max-width: 1280px;
+.app {
+  font-family: "Inter", "Roboto", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  padding: 20px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 2rem;
+}
+
+.app__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.app__title {
+  margin: 0;
+}
+
+.app__stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app__stat strong {
+  margin-right: 4px;
+}
+
+.button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #d0d7de;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.button:hover:not(:disabled) {
+  background: #f3f4f6;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.question {
   text-align: center;
+  margin-bottom: 16px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.question__character {
+  font-size: 96px;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.question__prompt {
+  color: #4b5563;
+  margin-top: 8px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
 }
 
-.card {
-  padding: 2em;
+.choice-btn {
+  padding: 12px;
+  font-size: 18px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #ffffff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
-.read-the-docs {
-  color: #888;
+.choice-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.choice-btn:disabled {
+  cursor: default;
+}
+
+.choice-btn--correct {
+  background: #daf7dc;
+  border-color: #9adba1;
+}
+
+.choice-btn--incorrect {
+  background: #ffdede;
+  border-color: #ef9a9a;
+}
+
+.action-row {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.feedback--correct {
+  color: #15803d;
+}
+
+.feedback--incorrect {
+  color: #b00020;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.finished {
+  margin-top: 24px;
+}
+
+.finished__actions {
+  margin-top: 12px;
+}
+
+.review {
+  margin-top: 16px;
+}
+
+.review__list {
+  padding-left: 20px;
+}
+
+.review__item {
+  margin: 8px 0;
+}
+
+.review__character {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+.footer {
+  margin-top: 36px;
+  color: #666666;
+  font-size: 0.95rem;
 }
