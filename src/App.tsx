@@ -97,6 +97,9 @@ const DECKS = {
 };
 
 const REVIEW_PREF_KEY = "flashcards_review_open";
+const DECK_QUERY_KEY = "deck";
+const BASE_PATH = "/jap-flashcards/";
+const GAME_PATH = `${BASE_PATH}play`;
 
 const getStoredReviewPref = () => {
   if (typeof window === "undefined") return false;
@@ -139,7 +142,7 @@ function App() {
   const [reviewOpen, setReviewOpen] = useState(() => getStoredReviewPref());
   const [countdown, setCountdown] = useState<number | null>(null);
 
-  const startGame = (deckKey: keyof typeof DECKS) => {
+  const applyDeck = (deckKey: keyof typeof DECKS) => {
     setActiveDeckKey(deckKey);
     setDeck(pickN(DECKS[deckKey].cards, ROUND_SIZE));
     setIndex(0);
@@ -151,7 +154,23 @@ function App() {
     setReviewOpen(getStoredReviewPref());
   };
 
+  const startGame = (deckKey: keyof typeof DECKS) => {
+    if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.pathname = GAME_PATH;
+        url.searchParams.set(DECK_QUERY_KEY, deckKey);
+        window.history.pushState({}, "", url.toString());
+    }
+    applyDeck(deckKey);
+  };
+
   const newGame = () => {
+    if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.pathname = BASE_PATH;
+        url.searchParams.delete(DECK_QUERY_KEY);
+        window.history.pushState({}, "", url.toString());
+    }
     setActiveDeckKey(null);
     setDeck([]);
     setIndex(0);
@@ -175,6 +194,7 @@ function App() {
     if (correct) setScore((s) => s + 1);
     setHistory((h) => [...h, { card: current, chosen: choice, correct }]);
     setShowAnswer(true);
+    setCountdown(3);
   };
 
   const next = () => {
@@ -194,39 +214,72 @@ function App() {
   }, [index, deck.length]);
 
   useEffect(() => {
-    if (activeDeckKey && deck.length > 0 && isFinished) {
-      setReviewOpen(true);
-    }
-  }, [activeDeckKey, deck.length, isFinished]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     if (!activeDeckKey || isFinished) return; // only persist during active play
     window.localStorage.setItem(REVIEW_PREF_KEY, String(reviewOpen));
   }, [reviewOpen, activeDeckKey, isFinished]);
 
   useEffect(() => {
-    if (!showAnswer || isFinished) {
-      setCountdown(null);
-      return;
-    }
-
-    setCountdown(3);
-    let remaining = 3;
+    if (!showAnswer || countdown === null || isFinished) return;
 
     const intervalId = setInterval(() => {
-      remaining -= 1;
-      setCountdown(remaining);
-      if (remaining <= 0) {
-        clearInterval(intervalId);
-        next();
-      }
+      setCountdown((c) => {
+        if (c === null) return null;
+        if (c <= 1) {
+          clearInterval(intervalId);
+          next();
+          return null;
+        }
+        return c - 1;
+      });
     }, 1000);
 
-    return () => {
-      clearInterval(intervalId);
+    return () => clearInterval(intervalId);
+  }, [showAnswer, countdown, isFinished]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const resetState = () => {
+      setActiveDeckKey(null);
+      setDeck([]);
+      setIndex(0);
+      setScore(0);
+      setSelected(null);
+      setShowAnswer(false);
+      setHistory([]);
+      setCountdown(null);
+      setReviewOpen(getStoredReviewPref());
     };
-  }, [showAnswer, isFinished]);
+
+    const parseFromLocation = () => {
+      const { pathname, search } = window.location;
+      const params = new URLSearchParams(search);
+      const deckKey = params.get(DECK_QUERY_KEY) as keyof typeof DECKS | null;
+
+      const isGamePath = pathname === GAME_PATH;
+      const isBasePath = pathname === BASE_PATH;
+
+      if (isGamePath && deckKey && DECKS[deckKey]) {
+        applyDeck(deckKey);
+      } else {
+        if (!isBasePath) {
+          const url = new URL(window.location.href);
+          url.pathname = BASE_PATH;
+          url.search = "";
+          window.history.replaceState({}, "", url.toString());
+        }
+        resetState();
+      }
+    };
+
+    parseFromLocation();
+    const onPopState = () => parseFromLocation();
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const reviewExpanded = isFinished ? true : reviewOpen;
 
   return (
     <div className="app">
@@ -339,13 +392,16 @@ function App() {
         <section className="review review--persistent">
           <button
             className="review__header"
-            onClick={() => setReviewOpen((o) => !o)}
-            aria-expanded={reviewOpen}
+            onClick={() => {
+              if (isFinished) return;
+              setReviewOpen((o) => !o);
+            }}
+            aria-expanded={reviewExpanded}
           >
-            <span className={`review__arrow ${reviewOpen ? "review__arrow--open" : ""}`}>▸</span>
+            <span className={`review__arrow ${reviewExpanded ? "review__arrow--open" : ""}`}>▸</span>
             <h2>Review answers</h2>
           </button>
-          {reviewOpen && (
+          {reviewExpanded && (
             <>
               {history.length === 0 ? (
                 <p className="review__empty">No answers yet. Play to see your history.</p>
