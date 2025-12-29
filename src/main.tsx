@@ -6,7 +6,7 @@ import { BrowserRouter } from 'react-router-dom'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename="/jap-flashcards">
+    <BrowserRouter basename="/jap-flashcards/">
       <App />
     </BrowserRouter>
   </StrictMode>,
