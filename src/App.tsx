@@ -1,35 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-
-type GoogleAccounts = {
-  id: {
-    initialize: (config: {
-      client_id: string;
-      callback: (response: { credential: string; select_by: string }) => void;
-      auto_select?: boolean;
-      cancel_on_tap_outside?: boolean;
-      use_fedcm_for_prompt?: boolean;
-    }) => void;
-    prompt: (callback?: (notification: {
-      isNotDisplayed: () => boolean;
-      getNotDisplayedReason: () => string;
-      isSkippedMoment: () => boolean;
-      getSkippedReason: () => string;
-      isDismissedMoment: () => boolean;
-      getDismissedReason: () => string;
-    }) => void) => void;
-    cancel: () => void;
-    revoke: (hint: string, callback: () => void) => void;
-  };
-};
-
-declare global {
-  interface Window {
-    google?: {
-      accounts?: GoogleAccounts;
-    };
-  }
-}
+import { useGoogleAuth } from "./useGoogleAuth";
 
 type Card = {
   hiragana: string;
@@ -157,14 +128,6 @@ function makeChoices(all: Card[], correct: Card): string[] {
   return shuffle(choices);
 }
 
-const decodeJwt = <T,>(token: string): T => {
-  const [, payload] = token.split(".");
-  const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized.padEnd(normalized.length + (4 - (normalized.length % 4)) % 4, "=");
-  const json = atob(padded);
-  return JSON.parse(json) as T;
-};
-
 
 function App() {
   const ROUND_SIZE = 10;
@@ -179,11 +142,7 @@ function App() {
   const [history, setHistory] = useState<{ card: Card; chosen: string; correct: boolean }[]>([]);
   const [reviewOpen, setReviewOpen] = useState(() => getStoredReviewPref());
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [authReady, setAuthReady] = useState(() => typeof window !== "undefined" && !!window.google?.accounts);
-  const [userProfile, setUserProfile] = useState<{ name?: string; email?: string; picture?: string } | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "981210561350-pufd2l0itspq0uccd6ih9rg9ijrvh6s4.apps.googleusercontent.com";
+  const { authError, userProfile, profileOpen, toggleProfile, signIn, signOut } = useGoogleAuth();
 
   const applyDeck = (deckKey: keyof typeof DECKS) => {
     setActiveDeckKey(deckKey);
@@ -258,59 +217,6 @@ function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.google && window.google.accounts) {
-      return;
-    }
-
-    const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://accounts.google.com/gsi/client"]');
-    if (existingScript) {
-      existingScript.addEventListener("load", () => setAuthReady(true));
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => setAuthReady(true);
-    script.onerror = () => setAuthError("Failed to load Google Identity Services");
-    document.body.appendChild(script);
-  }, []);
-
-  useEffect(() => {
-    if (!authReady || !clientId || !window.google?.accounts?.id) return;
-
-    const handleCredential = (response: { credential: string; select_by: string }) => {
-      try {
-        const payload = decodeJwt<{ name?: string; email?: string; picture?: string; given_name?: string }>(response.credential);
-        setUserProfile({
-          name: payload.name || payload.given_name,
-          email: payload.email,
-          picture: payload.picture,
-        });
-        setAuthError(null);
-        setProfileOpen(true);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Login failed";
-        setAuthError(message);
-      }
-    };
-
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: handleCredential,
-      auto_select: true,
-      cancel_on_tap_outside: true,
-      use_fedcm_for_prompt: true,
-    });
-
-    return () => {
-      window.google?.accounts?.id?.cancel();
-    };
-  }, [authReady, clientId]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
     if (!activeDeckKey || isFinished) return; // only persist during active play
     window.localStorage.setItem(REVIEW_PREF_KEY, String(reviewOpen));
   }, [reviewOpen, activeDeckKey, isFinished]);
@@ -378,29 +284,15 @@ function App() {
   const reviewExpanded = isFinished ? true : reviewOpen;
 
   const handleProfileClick = () => {
-    setProfileOpen((o) => !o);
+    toggleProfile();
   };
 
   const handleSignIn = () => {
-    if (!authReady || !window.google?.accounts?.id) {
-      setAuthError("Google auth not ready. Please try again.");
-      return;
-    }
-    setAuthError(null);
-    window.google.accounts.id.prompt();
+    signIn();
   };
 
   const handleSignOut = () => {
-    const email = userProfile?.email;
-    if (email && window.google?.accounts?.id?.revoke) {
-      window.google.accounts.id.revoke(email, () => {
-        setUserProfile(null);
-        setProfileOpen(false);
-      });
-      return;
-    }
-    setUserProfile(null);
-    setProfileOpen(false);
+    signOut();
   };
 
   return (
