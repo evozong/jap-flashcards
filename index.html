@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon-microsite-64.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' https://accounts.google.com/gsi/ 'unsafe-inline';
+        connect-src 'self' https://accounts.google.com/gsi/;
+        img-src 'self' https://lh3.googleusercontent.com data:;
+        style-src 'self' https://accounts.google.com/gsi/ 'unsafe-inline';
+        base-uri 'self';
+      "
+    />
     <title>jap-flashcards</title>
   </head>
   <body>

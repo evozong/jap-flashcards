@@ -105,7 +105,7 @@ export function useGoogleAuth() {
       client_id: clientId,
       callback: handleCredential,
       auto_select: false,
-      cancel_on_tap_outside: true,
+      cancel_on_tap_outside: false,
       use_fedcm_for_prompt: true,
     });
 
@@ -124,13 +124,7 @@ export function useGoogleAuth() {
       return;
     }
     setAuthError(null);
-    window.google.accounts.id.prompt((notification) => {
-      if (notification.isNotDisplayed()) {
-        setAuthError(`Google One Tap unavailable: ${notification.getNotDisplayedReason()}`);
-      } else if (notification.isSkippedMoment()) {
-        setAuthError(`Google One Tap skipped: ${notification.getSkippedReason()}`);
-      }
-    });
+    window.google.accounts.id.prompt();
     setProfileOpen(true);
   };
 
