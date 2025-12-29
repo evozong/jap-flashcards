@@ -196,7 +196,7 @@ function App() {
     if (correct) setScore((s) => s + 1);
     setHistory((h) => [...h, { card: current, chosen: choice, correct }]);
     setShowAnswer(true);
-    setCountdown(3);
+    setCountdown(2);
   };
 
   const next = () => {
