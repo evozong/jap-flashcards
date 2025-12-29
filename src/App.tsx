@@ -1,28 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
-type TokenClient = {
-  requestAccessToken: (options?: { prompt?: string }) => void;
-};
-
-type TokenClientConfig = {
-  client_id: string;
-  scope: string;
-  prompt?: string;
-  callback: (tokenResponse: { access_token: string }) => void;
-};
-
-type GoogleAccounts = {
-  oauth2: {
-    initTokenClient: (config: TokenClientConfig) => TokenClient;
-    revoke: (token: string, callback: () => void) => void;
-  };
-};
-
 declare global {
   interface Window {
     google?: {
-      accounts?: GoogleAccounts;
+      accounts?: {
+        id?: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+            cancel_on_tap_outside?: boolean;
+            auto_select?: boolean;
+            ux_mode?: "popup" | "redirect";
+          }) => void;
+          prompt: (notification?: (notice: unknown) => void) => void;
+          revoke: (hint: string, callback: () => void) => void;
+        };
+      };
     };
   }
 }
@@ -126,6 +120,16 @@ const REVIEW_PREF_KEY = "flashcards_review_open";
 const DECK_QUERY_KEY = "deck";
 const BASE_PATH = "/jap-flashcards/";
 const GAME_PATH = `${BASE_PATH}play`;
+const PROFILE_STORAGE_KEY = "flashcards_profile";
+
+type PromptNotification = {
+  isNotDisplayed: () => boolean;
+  getNotDisplayedReason: () => string;
+  isSkippedMoment: () => boolean;
+  getSkippedReason: () => string;
+  isDismissedMoment: () => boolean;
+  getDismissedReason: () => string;
+};
 
 const getStoredReviewPref = () => {
   if (typeof window === "undefined") return false;
@@ -167,12 +171,20 @@ function App() {
   const [history, setHistory] = useState<{ card: Card; chosen: string; correct: boolean }[]>([]);
   const [reviewOpen, setReviewOpen] = useState(() => getStoredReviewPref());
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [userProfile, setUserProfile] = useState<{ name?: string; email?: string; picture?: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ name?: string; email?: string; picture?: string } | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [profileOpen, setProfileOpen] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const accessTokenRef = useRef<string | null>(null);
-  const tokenClientRef = useRef<TokenClient | null>(null);
+  const authReadyRef = useRef(false);
+  const silentLoginAttemptedRef = useRef(false);
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "981210561350-pufd2l0itspq0uccd6ih9rg9ijrvh6s4.apps.googleusercontent.com";
 
   const applyDeck = (deckKey: keyof typeof DECKS) => {
@@ -248,14 +260,19 @@ function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.google && window.google.accounts) {
+    const onReady = () => {
+      authReadyRef.current = true;
       setAuthReady(true);
+    };
+
+    if (window.google && window.google.accounts) {
+      onReady();
       return;
     }
 
     const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://accounts.google.com/gsi/client"]');
     if (existingScript) {
-      existingScript.addEventListener("load", () => setAuthReady(true));
+      existingScript.addEventListener("load", onReady);
       return;
     }
 
@@ -263,41 +280,10 @@ function App() {
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
-    script.onload = () => setAuthReady(true);
+    script.onload = onReady;
     script.onerror = () => setAuthError("Failed to load Google Identity Services");
     document.body.appendChild(script);
   }, []);
-
-  useEffect(() => {
-    if (!authReady || !clientId || !window.google?.accounts?.oauth2) return;
-    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: "openid email profile",
-      prompt: "consent",
-      callback: async (tokenResponse: { access_token: string }) => {
-        try {
-          accessTokenRef.current = tokenResponse.access_token;
-          const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-            headers: {
-              Authorization: `Bearer ${tokenResponse.access_token}`
-            }
-          });
-          if (!res.ok) throw new Error("Unable to fetch profile");
-          const data = await res.json();
-          setUserProfile({
-            name: data.name,
-            email: data.email,
-            picture: data.picture
-          });
-          setAuthError(null);
-          setProfileOpen(true);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : "Login failed";
-          setAuthError(message);
-        }
-      }
-    });
-  }, [authReady, clientId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -368,7 +354,7 @@ function App() {
   const reviewExpanded = isFinished ? true : reviewOpen;
 
   const handleProfileClick = () => {
-    if (!authReady || !tokenClientRef.current) {
+    if (!authReady || !window.google?.accounts?.id) {
       setAuthError("Google auth not ready. Please try again.");
       return;
     }
@@ -376,14 +362,22 @@ function App() {
       setProfileOpen((o) => !o);
       return;
     }
-    tokenClientRef.current.requestAccessToken({ prompt: "consent" });
+    setAuthError(null);
+    window.google.accounts.id.prompt((notification: PromptNotification) => {
+      if (notification.isNotDisplayed()) {
+        setAuthError(`Google prompt not displayed: ${notification.getNotDisplayedReason()}`);
+      } else if (notification.isSkippedMoment()) {
+        setAuthError(`Google sign-in skipped: ${notification.getSkippedReason()}`);
+      } else if (notification.isDismissedMoment()) {
+        setAuthError(`Google sign-in dismissed: ${notification.getDismissedReason()}`);
+      }
+    });
   };
 
   const handleSignOut = () => {
-    const token = accessTokenRef.current;
-    if (token && window.google?.accounts?.oauth2?.revoke) {
-      window.google.accounts.oauth2.revoke(token, () => {
-        accessTokenRef.current = null;
+    const email = userProfile?.email;
+    if (email && window.google?.accounts?.id?.revoke) {
+      window.google.accounts.id.revoke(email, () => {
         setUserProfile(null);
         setProfileOpen(false);
       });
@@ -392,6 +386,58 @@ function App() {
       setProfileOpen(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (userProfile) {
+      window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(userProfile));
+    } else {
+      window.localStorage.removeItem(PROFILE_STORAGE_KEY);
+    }
+  }, [userProfile]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!authReady || !clientId || !window.google?.accounts?.id || silentLoginAttemptedRef.current) return;
+
+    const decodeJwt = (token: string) => {
+      const [, payload] = token.split(".");
+      const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+      return decoded;
+    };
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: (response: { credential: string }) => {
+        try {
+          const payload = decodeJwt(response.credential);
+          setUserProfile({
+            name: payload.name,
+            email: payload.email,
+            picture: payload.picture,
+          });
+          setAuthError(null);
+          setProfileOpen(false);
+        } catch {
+          setAuthError("Failed to decode Google credential.");
+        }
+      },
+      ux_mode: "popup",
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+
+    silentLoginAttemptedRef.current = true;
+    window.google.accounts.id.prompt((notification: PromptNotification) => {
+      if (notification.isNotDisplayed()) {
+        setAuthError(`Google prompt not displayed: ${notification.getNotDisplayedReason()}`);
+      } else if (notification.isSkippedMoment()) {
+        setAuthError(`Google sign-in skipped: ${notification.getSkippedReason()}`);
+      } else if (notification.isDismissedMoment()) {
+        setAuthError(`Google sign-in dismissed: ${notification.getDismissedReason()}`);
+      }
+    });
+  }, [authReady, clientId]);
 
   return (
     <div className="app">
