@@ -1,21 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
-type TokenClient = {
-  requestAccessToken: (options?: { prompt?: string }) => void;
-};
-
-type TokenClientConfig = {
-  client_id: string;
-  scope: string;
-  prompt?: string;
-  callback: (tokenResponse: { access_token: string }) => void;
-};
-
 type GoogleAccounts = {
-  oauth2: {
-    initTokenClient: (config: TokenClientConfig) => TokenClient;
-    revoke: (token: string, callback: () => void) => void;
+  id: {
+    initialize: (config: {
+      client_id: string;
+      callback: (response: { credential: string; select_by: string }) => void;
+      auto_select?: boolean;
+      cancel_on_tap_outside?: boolean;
+      use_fedcm_for_prompt?: boolean;
+    }) => void;
+    prompt: (callback?: (notification: {
+      isNotDisplayed: () => boolean;
+      getNotDisplayedReason: () => string;
+      isSkippedMoment: () => boolean;
+      getSkippedReason: () => string;
+      isDismissedMoment: () => boolean;
+      getDismissedReason: () => string;
+    }) => void) => void;
+    cancel: () => void;
+    revoke: (hint: string, callback: () => void) => void;
   };
 };
 
@@ -153,6 +157,14 @@ function makeChoices(all: Card[], correct: Card): string[] {
   return shuffle(choices);
 }
 
+const decodeJwt = <T,>(token: string): T => {
+  const [, payload] = token.split(".");
+  const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(normalized.length + (4 - (normalized.length % 4)) % 4, "=");
+  const json = atob(padded);
+  return JSON.parse(json) as T;
+};
+
 
 function App() {
   const ROUND_SIZE = 10;
@@ -167,12 +179,10 @@ function App() {
   const [history, setHistory] = useState<{ card: Card; chosen: string; correct: boolean }[]>([]);
   const [reviewOpen, setReviewOpen] = useState(() => getStoredReviewPref());
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [authReady, setAuthReady] = useState(() => typeof window !== "undefined" && !!window.google?.accounts);
   const [userProfile, setUserProfile] = useState<{ name?: string; email?: string; picture?: string } | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const accessTokenRef = useRef<string | null>(null);
-  const tokenClientRef = useRef<TokenClient | null>(null);
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "981210561350-pufd2l0itspq0uccd6ih9rg9ijrvh6s4.apps.googleusercontent.com";
 
   const applyDeck = (deckKey: keyof typeof DECKS) => {
@@ -249,7 +259,6 @@ function App() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.google && window.google.accounts) {
-      setAuthReady(true);
       return;
     }
 
@@ -269,34 +278,35 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!authReady || !clientId || !window.google?.accounts?.oauth2) return;
-    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: "openid email profile",
-      prompt: "consent",
-      callback: async (tokenResponse: { access_token: string }) => {
-        try {
-          accessTokenRef.current = tokenResponse.access_token;
-          const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-            headers: {
-              Authorization: `Bearer ${tokenResponse.access_token}`
-            }
-          });
-          if (!res.ok) throw new Error("Unable to fetch profile");
-          const data = await res.json();
-          setUserProfile({
-            name: data.name,
-            email: data.email,
-            picture: data.picture
-          });
-          setAuthError(null);
-          setProfileOpen(true);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : "Login failed";
-          setAuthError(message);
-        }
+    if (!authReady || !clientId || !window.google?.accounts?.id) return;
+
+    const handleCredential = (response: { credential: string; select_by: string }) => {
+      try {
+        const payload = decodeJwt<{ name?: string; email?: string; picture?: string; given_name?: string }>(response.credential);
+        setUserProfile({
+          name: payload.name || payload.given_name,
+          email: payload.email,
+          picture: payload.picture,
+        });
+        setAuthError(null);
+        setProfileOpen(true);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Login failed";
+        setAuthError(message);
       }
+    };
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleCredential,
+      auto_select: true,
+      cancel_on_tap_outside: true,
+      use_fedcm_for_prompt: true,
     });
+
+    return () => {
+      window.google?.accounts?.id?.cancel();
+    };
   }, [authReady, clientId]);
 
   useEffect(() => {
@@ -368,29 +378,29 @@ function App() {
   const reviewExpanded = isFinished ? true : reviewOpen;
 
   const handleProfileClick = () => {
-    if (!authReady || !tokenClientRef.current) {
+    setProfileOpen((o) => !o);
+  };
+
+  const handleSignIn = () => {
+    if (!authReady || !window.google?.accounts?.id) {
       setAuthError("Google auth not ready. Please try again.");
       return;
     }
-    if (userProfile) {
-      setProfileOpen((o) => !o);
-      return;
-    }
-    tokenClientRef.current.requestAccessToken({ prompt: "consent" });
+    setAuthError(null);
+    window.google.accounts.id.prompt();
   };
 
   const handleSignOut = () => {
-    const token = accessTokenRef.current;
-    if (token && window.google?.accounts?.oauth2?.revoke) {
-      window.google.accounts.oauth2.revoke(token, () => {
-        accessTokenRef.current = null;
+    const email = userProfile?.email;
+    if (email && window.google?.accounts?.id?.revoke) {
+      window.google.accounts.id.revoke(email, () => {
         setUserProfile(null);
         setProfileOpen(false);
       });
-    } else {
-      setUserProfile(null);
-      setProfileOpen(false);
+      return;
     }
+    setUserProfile(null);
+    setProfileOpen(false);
   };
 
   return (
@@ -415,7 +425,7 @@ function App() {
                     <button className="button profile__signout" onClick={handleSignOut}>Sign out</button>
                   </>
                 ) : (
-                  <div className="profile__hint">Sign in with Google to save progress.</div>
+                  <button className="button profile__signout" onClick={handleSignIn}>Sign in</button>
                 )}
               </div>
             )}
