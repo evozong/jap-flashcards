@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { useGoogleAuth } from "./useGoogleAuth";
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 type Card = {
   hiragana: string;
@@ -278,7 +278,9 @@ function App() {
     <div className="app">
       <header className="app__header">
         <div className="app__topbar">
-          <h1 className="app__title">Flashcards</h1>
+          <h1 className="app__title">
+            <Link to="/">Flashcards</Link>
+          </h1>
           <div className="profile">
             <button className="profile__button" onClick={handleProfileClick} aria-label="Profile">
               {userProfile?.picture ? (
