@@ -318,9 +318,6 @@ function App() {
               <span className="app__stat">
                 <strong>Score</strong> {score}
               </span>
-              <button className="button" onClick={newGame}>
-                New Game
-              </button>
             </>
           )}
         </div>
@@ -408,10 +405,12 @@ function App() {
                   <p>
                     You scored <strong>{score}</strong> out of <strong>{deck.length}</strong>.
                   </p>
-
                   <div className="finished__actions">
                     <button onClick={() => activeDeckKey && startGame(activeDeckKey)} className="button">
                       Play again
+                    </button>
+                    <button className="button" onClick={newGame}>
+                      Play a different deck
                     </button>
                   </div>
                 </section>
