@@ -13,6 +13,14 @@
   gap: 10px;
 }
 
+.app__topbar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .app__title {
   margin: 0;
 }
@@ -65,6 +73,91 @@
 .button:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.profile {
+  position: relative;
+}
+
+.profile__button {
+  background: #fff;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  padding: 4px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+.profile__button:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+.profile__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile__avatar--placeholder {
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.profile__panel {
+  position: absolute;
+  top: 46px;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 220px;
+  z-index: 10;
+}
+
+.profile__name {
+  font-weight: 700;
+}
+
+.profile__email {
+  color: #4b5563;
+  font-size: 0.95rem;
+  margin-top: 2px;
+}
+
+.profile__signout {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.profile__hint {
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+.profile__error {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  background: #fee2e2;
+  border: 1px solid #ef4444;
+  color: #991b1b;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.9rem;
+  z-index: 9;
 }
 
 .question {

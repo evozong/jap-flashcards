@@ -1,5 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+
+type TokenClient = {
+  requestAccessToken: (options?: { prompt?: string }) => void;
+};
+
+type TokenClientConfig = {
+  client_id: string;
+  scope: string;
+  prompt?: string;
+  callback: (tokenResponse: { access_token: string }) => void;
+};
+
+type GoogleAccounts = {
+  oauth2: {
+    initTokenClient: (config: TokenClientConfig) => TokenClient;
+    revoke: (token: string, callback: () => void) => void;
+  };
+};
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: GoogleAccounts;
+    };
+  }
+}
 
 type Card = {
   hiragana: string;
@@ -141,6 +167,13 @@ function App() {
   const [history, setHistory] = useState<{ card: Card; chosen: string; correct: boolean }[]>([]);
   const [reviewOpen, setReviewOpen] = useState(() => getStoredReviewPref());
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [userProfile, setUserProfile] = useState<{ name?: string; email?: string; picture?: string } | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const accessTokenRef = useRef<string | null>(null);
+  const tokenClientRef = useRef<TokenClient | null>(null);
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "981210561350-pufd2l0itspq0uccd6ih9rg9ijrvh6s4.apps.googleusercontent.com";
 
   const applyDeck = (deckKey: keyof typeof DECKS) => {
     setActiveDeckKey(deckKey);
@@ -215,6 +248,59 @@ function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (window.google && window.google.accounts) {
+      setAuthReady(true);
+      return;
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://accounts.google.com/gsi/client"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => setAuthReady(true));
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => setAuthReady(true);
+    script.onerror = () => setAuthError("Failed to load Google Identity Services");
+    document.body.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    if (!authReady || !clientId || !window.google?.accounts?.oauth2) return;
+    tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: "openid email profile",
+      prompt: "consent",
+      callback: async (tokenResponse: { access_token: string }) => {
+        try {
+          accessTokenRef.current = tokenResponse.access_token;
+          const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+            headers: {
+              Authorization: `Bearer ${tokenResponse.access_token}`
+            }
+          });
+          if (!res.ok) throw new Error("Unable to fetch profile");
+          const data = await res.json();
+          setUserProfile({
+            name: data.name,
+            email: data.email,
+            picture: data.picture
+          });
+          setAuthError(null);
+          setProfileOpen(true);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Login failed";
+          setAuthError(message);
+        }
+      }
+    });
+  }, [authReady, clientId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     if (!activeDeckKey || isFinished) return; // only persist during active play
     window.localStorage.setItem(REVIEW_PREF_KEY, String(reviewOpen));
   }, [reviewOpen, activeDeckKey, isFinished]);
@@ -281,10 +367,62 @@ function App() {
 
   const reviewExpanded = isFinished ? true : reviewOpen;
 
+  const handleProfileClick = () => {
+    if (!authReady || !tokenClientRef.current) {
+      setAuthError("Google auth not ready. Please try again.");
+      return;
+    }
+    if (userProfile) {
+      setProfileOpen((o) => !o);
+      return;
+    }
+    tokenClientRef.current.requestAccessToken({ prompt: "consent" });
+  };
+
+  const handleSignOut = () => {
+    const token = accessTokenRef.current;
+    if (token && window.google?.accounts?.oauth2?.revoke) {
+      window.google.accounts.oauth2.revoke(token, () => {
+        accessTokenRef.current = null;
+        setUserProfile(null);
+        setProfileOpen(false);
+      });
+    } else {
+      setUserProfile(null);
+      setProfileOpen(false);
+    }
+  };
+
   return (
     <div className="app">
       <header className="app__header">
-        <h1 className="app__title">Flashcards</h1>
+        <div className="app__topbar">
+          <h1 className="app__title">Flashcards</h1>
+          <div className="profile">
+            <button className="profile__button" onClick={handleProfileClick} aria-label="Profile">
+              {userProfile?.picture ? (
+                <img src={userProfile.picture} alt={userProfile.name || "Profile"} className="profile__avatar" />
+              ) : (
+                <span className="profile__avatar profile__avatar--placeholder">👤</span>
+              )}
+            </button>
+            {profileOpen && (
+              <div className="profile__panel">
+                {userProfile ? (
+                  <>
+                    <div className="profile__name">{userProfile.name}</div>
+                    <div className="profile__email">{userProfile.email}</div>
+                    <button className="button profile__signout" onClick={handleSignOut}>Sign out</button>
+                  </>
+                ) : (
+                  <div className="profile__hint">Sign in with Google to save progress.</div>
+                )}
+              </div>
+            )}
+            {authError && <div className="profile__error">{authError}</div>}
+          </div>
+        </div>
+
         <div className="app__stats">
           {activeDeckKey && (
             <>
