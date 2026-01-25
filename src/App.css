@@ -1,3 +1,51 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --muted: #4b5563;
+  --border: #d0d7de;
+  --border-strong: #e5e7eb;
+  --shadow-soft: rgba(0, 0, 0, 0.08);
+  --shadow-strong: rgba(15, 23, 42, 0.12);
+  --button-hover: #f3f4f6;
+  --choice-border: #dddddd;
+  --correct-bg: #daf7dc;
+  --correct-border: #9adba1;
+  --incorrect-bg: #ffdede;
+  --incorrect-border: #ef9a9a;
+  --error-bg: #fee2e2;
+  --error-border: #ef4444;
+  --error-text: #991b1b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --surface: #121a2b;
+    --text: #d7dde8;
+    --muted: #8fa0b7;
+    --border: #243044;
+    --border-strong: #2b374e;
+    --shadow-soft: rgba(0, 0, 0, 0.35);
+    --shadow-strong: rgba(0, 0, 0, 0.55);
+    --button-hover: #1a2436;
+    --choice-border: #2a3750;
+    --correct-bg: #143221;
+    --correct-border: #2b6f44;
+    --incorrect-bg: #35161a;
+    --incorrect-border: #ef4444;
+    --error-bg: #3b1016;
+    --error-border: #a11b2b;
+    --error-text: #fda4af;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
 .app {
   font-family: "Inter", "Roboto", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
   padding: 20px;
@@ -62,17 +110,17 @@
 .button {
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid #d0d7de;
-  background: #ffffff;
-  color: #0f172a;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .button:hover:not(:disabled) {
-  background: #f3f4f6;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  background: var(--button-hover);
+  box-shadow: 0 4px 10px var(--shadow-soft);
 }
 
 .button:disabled {
@@ -85,8 +133,8 @@
 }
 
 .profile__button {
-  background: #fff;
-  border: 1px solid #d0d7de;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px;
   width: 40px;
@@ -99,7 +147,7 @@
 }
 
 .profile__button:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 20px var(--shadow-soft);
 }
 
 .profile__avatar {
@@ -123,9 +171,9 @@
   position: absolute;
   top: 46px;
   right: 0;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 14px 40px var(--shadow-strong);
   border-radius: 10px;
   padding: 10px 12px;
   min-width: 220px;
@@ -137,7 +185,7 @@
 }
 
 .profile__email {
-  color: #4b5563;
+  color: var(--muted);
   font-size: 0.95rem;
   margin-top: 2px;
 }
@@ -148,7 +196,7 @@
 }
 
 .profile__hint {
-  color: #4b5563;
+  color: var(--muted);
   font-size: 0.95rem;
 }
 
@@ -156,9 +204,9 @@
   position: absolute;
   top: 52px;
   right: 0;
-  background: #fee2e2;
-  border: 1px solid #ef4444;
-  color: #991b1b;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  color: var(--error-text);
   border-radius: 8px;
   padding: 6px 8px;
   font-size: 0.9rem;
@@ -176,7 +224,7 @@
 
 .question__prompt {
   text-align: left;
-  color: #4b5563;
+  color: var(--muted);
   margin-top: 8px;
 }
 
@@ -191,15 +239,16 @@
   padding: 12px;
   font-size: 18px;
   border-radius: 8px;
-  border: 1px solid #ddd;
-  background: #ffffff;
+  border: 1px solid var(--choice-border);
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .choice-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px var(--shadow-soft);
 }
 
 .choice-btn:disabled {
@@ -207,13 +256,13 @@
 }
 
 .choice-btn--correct {
-  background: #daf7dc;
-  border-color: #9adba1;
+  background: var(--correct-bg);
+  border-color: var(--correct-border);
 }
 
 .choice-btn--incorrect {
-  background: #ffdede;
-  border-color: #ef9a9a;
+  background: var(--incorrect-bg);
+  border-color: var(--incorrect-border);
 }
 
 .actions {
@@ -257,7 +306,7 @@
 }
 
 .review__empty {
-  color: #4b5563;
+  color: var(--muted);
 }
 
 .review__character {
@@ -291,6 +340,6 @@
 
 .footer {
   margin-top: 36px;
-  color: #666666;
+  color: var(--muted);
   font-size: 0.95rem;
 }
