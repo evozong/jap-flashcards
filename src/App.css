@@ -90,9 +90,19 @@ body {
   gap: 12px;
 }
 
+.deck-picker__row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .deck-picker__button {
-  width: 100%;
-  justify-self: start;
+  flex: 1;
+}
+
+.deck-picker__revise-btn {
+  flex-shrink: 0;
+  color: var(--muted);
 }
 
 .app__stats {
@@ -342,4 +352,60 @@ body {
   margin-top: 36px;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.revise {
+  margin-top: 24px;
+  display: grid;
+  gap: 24px;
+}
+
+.revise__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.revise__header h2 {
+  margin: 0;
+}
+
+.revise__subtitle {
+  color: var(--muted);
+  margin: 0;
+}
+
+.revise__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.revise__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.revise__character {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.revise__romaji {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.revise__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }

@@ -190,6 +190,10 @@ function App() {
     navigate("/");
   }, [navigate, resetState]);
 
+  const startRevise = useCallback((deckKey: keyof typeof DECKS) => {
+    navigate({ pathname: "/revise", search: `?${DECK_QUERY_KEY}=${deckKey}` });
+  }, [navigate]);
+
   const current = deck[index];
 
   // memoize choices for current card so they don't change while user decides
@@ -331,13 +335,50 @@ function App() {
               <h2>Select a deck to begin</h2>
               <div className="deck-picker__options">
                 {Object.entries(DECKS).map(([key, deckInfo]) => (
-                  <button key={key} className="button deck-picker__button" onClick={() => startGame(key as keyof typeof DECKS)}>
-                    {deckInfo.label}
-                  </button>
+                  <div key={key} className="deck-picker__row">
+                    <button className="button deck-picker__button" onClick={() => startGame(key as keyof typeof DECKS)}>
+                      {deckInfo.label}
+                    </button>
+                    <button className="button deck-picker__revise-btn" onClick={() => startRevise(key as keyof typeof DECKS)}>
+                      Revise
+                    </button>
+                  </div>
                 ))}
               </div>
             </main>
           }
+        />
+
+        <Route
+          path="/revise"
+          element={(() => {
+            const params = new URLSearchParams(location.search);
+            const deckKey = params.get(DECK_QUERY_KEY) as keyof typeof DECKS | null;
+            const deckInfo = deckKey && DECKS[deckKey] ? DECKS[deckKey] : null;
+
+            if (!deckInfo) return <Navigate to="/" replace />;
+
+            return (
+              <main className="revise">
+                <div className="revise__header">
+                  <h2>{deckInfo.label}</h2>
+                  <p className="revise__subtitle">{deckInfo.cards.length} characters</p>
+                </div>
+                <div className="revise__grid">
+                  {deckInfo.cards.map((card) => (
+                    <div key={card.hiragana} className="revise__card">
+                      <span className="revise__character">{card.hiragana}</span>
+                      <span className="revise__romaji">{card.romaji}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="revise__actions">
+                  <button className="button" onClick={() => navigate("/")}>Back to decks</button>
+                  <button className="button" onClick={() => startGame(deckKey!)}>Play this deck</button>
+                </div>
+              </main>
+            );
+          })()}
         />
 
         <Route
