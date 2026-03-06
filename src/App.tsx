@@ -98,26 +98,26 @@ const DECKS = {
   },
 };
 
-// Classic gojūon rows. Each row has exactly 5 slots (a, i, u, e, o).
+// Gojūon rows interleaved with their dakuten variants so similar rows are adjacent.
+// Each row has exactly 5 slots (a, i, u, e, o).
 // null = combination doesn't exist in Japanese (e.g. yi, ye, wi, wu, we).
 const GOJUON_GROUPS: (string | null)[][] = [
   ["あ","い","う","え","お"],
   ["か","き","く","け","こ"],
+  ["が","ぎ","ぐ","げ","ご"],
   ["さ","し","す","せ","そ"],
+  ["ざ","じ","ず","ぜ","ぞ"],
   ["た","ち","つ","て","と"],
+  ["だ","ぢ","づ","で","ど"],
   ["な","に","ぬ","ね","の"],
   ["は","ひ","ふ","へ","ほ"],
+  ["ば","び","ぶ","べ","ぼ"],
+  ["ぱ","ぴ","ぷ","ぺ","ぽ"],
   ["ま","み","む","め","も"],
   ["や", null,"ゆ", null,"よ"],
   ["ら","り","る","れ","ろ"],
   ["わ", null, null, null,"を"],
   ["ん", null, null, null, null],
-  // dakuten
-  ["が","ぎ","ぐ","げ","ご"],
-  ["ざ","じ","ず","ぜ","ぞ"],
-  ["だ","ぢ","づ","で","ど"],
-  ["ば","び","ぶ","べ","ぼ"],
-  ["ぱ","ぴ","ぷ","ぺ","ぽ"],
 ];
 
 const REVIEW_PREF_KEY = "flashcards_review_open";
