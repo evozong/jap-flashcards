@@ -377,25 +377,12 @@ body {
 
 .revise__groups {
   display: grid;
-  gap: 20px;
-}
-
-.revise__group {
-  display: grid;
   gap: 8px;
-}
-
-.revise__group-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .revise__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 8px;
 }
 
@@ -420,6 +407,12 @@ body {
   font-size: 14px;
   color: var(--muted);
   font-weight: 600;
+}
+
+.revise__card--empty {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
 .revise__actions {

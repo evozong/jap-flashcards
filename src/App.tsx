@@ -98,27 +98,26 @@ const DECKS = {
   },
 };
 
-// Classic gojūon groupings. Only lists hiragana that actually exist
-// (e.g. ya-row has 3, wa-row has 2). Groups with no cards in the active
-// deck are skipped automatically at render time.
-const GOJUON_GROUPS: { label: string; kana: string[] }[] = [
-  { label: "あ", kana: ["あ","い","う","え","お"] },
-  { label: "か", kana: ["か","き","く","け","こ"] },
-  { label: "さ", kana: ["さ","し","す","せ","そ"] },
-  { label: "た", kana: ["た","ち","つ","て","と"] },
-  { label: "な", kana: ["な","に","ぬ","ね","の"] },
-  { label: "は", kana: ["は","ひ","ふ","へ","ほ"] },
-  { label: "ま", kana: ["ま","み","む","め","も"] },
-  { label: "や", kana: ["や","ゆ","よ"] },
-  { label: "ら", kana: ["ら","り","る","れ","ろ"] },
-  { label: "わ", kana: ["わ","を"] },
-  { label: "ん", kana: ["ん"] },
+// Classic gojūon rows. Each row has exactly 5 slots (a, i, u, e, o).
+// null = combination doesn't exist in Japanese (e.g. yi, ye, wi, wu, we).
+const GOJUON_GROUPS: (string | null)[][] = [
+  ["あ","い","う","え","お"],
+  ["か","き","く","け","こ"],
+  ["さ","し","す","せ","そ"],
+  ["た","ち","つ","て","と"],
+  ["な","に","ぬ","ね","の"],
+  ["は","ひ","ふ","へ","ほ"],
+  ["ま","み","む","め","も"],
+  ["や", null,"ゆ", null,"よ"],
+  ["ら","り","る","れ","ろ"],
+  ["わ", null, null, null,"を"],
+  ["ん", null, null, null, null],
   // dakuten
-  { label: "が", kana: ["が","ぎ","ぐ","げ","ご"] },
-  { label: "ざ", kana: ["ざ","じ","ず","ぜ","ぞ"] },
-  { label: "だ", kana: ["だ","ぢ","づ","で","ど"] },
-  { label: "ば", kana: ["ば","び","ぶ","べ","ぼ"] },
-  { label: "ぱ", kana: ["ぱ","ぴ","ぷ","ぺ","ぽ"] },
+  ["が","ぎ","ぐ","げ","ご"],
+  ["ざ","じ","ず","ぜ","ぞ"],
+  ["だ","ぢ","づ","で","ど"],
+  ["ば","び","ぶ","べ","ぼ"],
+  ["ぱ","ぴ","ぷ","ぺ","ぽ"],
 ];
 
 const REVIEW_PREF_KEY = "flashcards_review_open";
@@ -390,20 +389,22 @@ function App() {
                   <p className="revise__subtitle">{deckInfo.cards.length} characters</p>
                 </div>
                 <div className="revise__groups">
-                  {GOJUON_GROUPS.map((group) => {
-                    const cards = group.kana.map((k) => cardMap.get(k)).filter(Boolean) as Card[];
-                    if (cards.length === 0) return null;
+                  {GOJUON_GROUPS.map((row, rowIdx) => {
+                    const hasAny = row.some((k) => k && cardMap.has(k));
+                    if (!hasAny) return null;
                     return (
-                      <div key={group.label} className="revise__group">
-                        <div className="revise__group-label">{group.label}行</div>
-                        <div className="revise__grid">
-                          {cards.map((card) => (
-                            <div key={card.hiragana} className="revise__card">
+                      <div key={rowIdx} className="revise__grid">
+                        {row.map((k, colIdx) => {
+                          const card = k ? cardMap.get(k) : undefined;
+                          return card ? (
+                            <div key={k} className="revise__card">
                               <span className="revise__character">{card.hiragana}</span>
                               <span className="revise__romaji">{card.romaji}</span>
                             </div>
-                          ))}
-                        </div>
+                          ) : (
+                            <div key={colIdx} className="revise__card revise__card--empty" />
+                          );
+                        })}
                       </div>
                     );
                   })}
