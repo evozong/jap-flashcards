@@ -98,6 +98,28 @@ const DECKS = {
   },
 };
 
+// Gojūon rows interleaved with their dakuten variants so similar rows are adjacent.
+// Each row has exactly 5 slots (a, i, u, e, o).
+// null = combination doesn't exist in Japanese (e.g. yi, ye, wi, wu, we).
+const GOJUON_GROUPS: (string | null)[][] = [
+  ["あ","い","う","え","お"],
+  ["か","き","く","け","こ"],
+  ["が","ぎ","ぐ","げ","ご"],
+  ["さ","し","す","せ","そ"],
+  ["ざ","じ","ず","ぜ","ぞ"],
+  ["た","ち","つ","て","と"],
+  ["だ","ぢ","づ","で","ど"],
+  ["な","に","ぬ","ね","の"],
+  ["は","ひ","ふ","へ","ほ"],
+  ["ば","び","ぶ","べ","ぼ"],
+  ["ぱ","ぴ","ぷ","ぺ","ぽ"],
+  ["ま","み","む","め","も"],
+  ["や", null,"ゆ", null,"よ"],
+  ["ら","り","る","れ","ろ"],
+  ["わ", null, null, null,"を"],
+  ["ん", null, null, null, null],
+];
+
 const REVIEW_PREF_KEY = "flashcards_review_open";
 const DECK_QUERY_KEY = "deck";
 const ROUND_SIZE = 10;
@@ -189,6 +211,10 @@ function App() {
     resetState();
     navigate("/");
   }, [navigate, resetState]);
+
+  const startRevise = useCallback((deckKey: keyof typeof DECKS) => {
+    navigate({ pathname: "/revise", search: `?${DECK_QUERY_KEY}=${deckKey}` });
+  }, [navigate]);
 
   const current = deck[index];
 
@@ -331,13 +357,65 @@ function App() {
               <h2>Select a deck to begin</h2>
               <div className="deck-picker__options">
                 {Object.entries(DECKS).map(([key, deckInfo]) => (
-                  <button key={key} className="button deck-picker__button" onClick={() => startGame(key as keyof typeof DECKS)}>
-                    {deckInfo.label}
-                  </button>
+                  <div key={key} className="deck-picker__row">
+                    <button className="button deck-picker__button" onClick={() => startGame(key as keyof typeof DECKS)}>
+                      {deckInfo.label}
+                    </button>
+                    <button className="button deck-picker__revise-btn" onClick={() => startRevise(key as keyof typeof DECKS)}>
+                      Revise
+                    </button>
+                  </div>
                 ))}
               </div>
             </main>
           }
+        />
+
+        <Route
+          path="/revise"
+          element={(() => {
+            const params = new URLSearchParams(location.search);
+            const deckKey = params.get(DECK_QUERY_KEY) as keyof typeof DECKS | null;
+            const deckInfo = deckKey && DECKS[deckKey] ? DECKS[deckKey] : null;
+
+            if (!deckInfo) return <Navigate to="/" replace />;
+
+            const cardMap = new Map(deckInfo.cards.map((c) => [c.hiragana, c]));
+
+            return (
+              <main className="revise">
+                <div className="revise__header">
+                  <h2>{deckInfo.label}</h2>
+                  <p className="revise__subtitle">{deckInfo.cards.length} characters</p>
+                </div>
+                <div className="revise__groups">
+                  {GOJUON_GROUPS.map((row, rowIdx) => {
+                    const hasAny = row.some((k) => k && cardMap.has(k));
+                    if (!hasAny) return null;
+                    return (
+                      <div key={rowIdx} className="revise__grid">
+                        {row.map((k, colIdx) => {
+                          const card = k ? cardMap.get(k) : undefined;
+                          return card ? (
+                            <div key={k} className="revise__card">
+                              <span className="revise__character">{card.hiragana}</span>
+                              <span className="revise__romaji">{card.romaji}</span>
+                            </div>
+                          ) : (
+                            <div key={colIdx} className="revise__card revise__card--empty" />
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="revise__actions">
+                  <button className="button" onClick={() => navigate("/")}>Back to decks</button>
+                  <button className="button" onClick={() => startGame(deckKey!)}>Play this deck</button>
+                </div>
+              </main>
+            );
+          })()}
         />
 
         <Route
