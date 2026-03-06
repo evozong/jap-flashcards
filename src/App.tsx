@@ -98,6 +98,29 @@ const DECKS = {
   },
 };
 
+// Classic gojūon groupings. Only lists hiragana that actually exist
+// (e.g. ya-row has 3, wa-row has 2). Groups with no cards in the active
+// deck are skipped automatically at render time.
+const GOJUON_GROUPS: { label: string; kana: string[] }[] = [
+  { label: "あ", kana: ["あ","い","う","え","お"] },
+  { label: "か", kana: ["か","き","く","け","こ"] },
+  { label: "さ", kana: ["さ","し","す","せ","そ"] },
+  { label: "た", kana: ["た","ち","つ","て","と"] },
+  { label: "な", kana: ["な","に","ぬ","ね","の"] },
+  { label: "は", kana: ["は","ひ","ふ","へ","ほ"] },
+  { label: "ま", kana: ["ま","み","む","め","も"] },
+  { label: "や", kana: ["や","ゆ","よ"] },
+  { label: "ら", kana: ["ら","り","る","れ","ろ"] },
+  { label: "わ", kana: ["わ","を"] },
+  { label: "ん", kana: ["ん"] },
+  // dakuten
+  { label: "が", kana: ["が","ぎ","ぐ","げ","ご"] },
+  { label: "ざ", kana: ["ざ","じ","ず","ぜ","ぞ"] },
+  { label: "だ", kana: ["だ","ぢ","づ","で","ど"] },
+  { label: "ば", kana: ["ば","び","ぶ","べ","ぼ"] },
+  { label: "ぱ", kana: ["ぱ","ぴ","ぷ","ぺ","ぽ"] },
+];
+
 const REVIEW_PREF_KEY = "flashcards_review_open";
 const DECK_QUERY_KEY = "deck";
 const ROUND_SIZE = 10;
@@ -358,19 +381,32 @@ function App() {
 
             if (!deckInfo) return <Navigate to="/" replace />;
 
+            const cardMap = new Map(deckInfo.cards.map((c) => [c.hiragana, c]));
+
             return (
               <main className="revise">
                 <div className="revise__header">
                   <h2>{deckInfo.label}</h2>
                   <p className="revise__subtitle">{deckInfo.cards.length} characters</p>
                 </div>
-                <div className="revise__grid">
-                  {deckInfo.cards.map((card) => (
-                    <div key={card.hiragana} className="revise__card">
-                      <span className="revise__character">{card.hiragana}</span>
-                      <span className="revise__romaji">{card.romaji}</span>
-                    </div>
-                  ))}
+                <div className="revise__groups">
+                  {GOJUON_GROUPS.map((group) => {
+                    const cards = group.kana.map((k) => cardMap.get(k)).filter(Boolean) as Card[];
+                    if (cards.length === 0) return null;
+                    return (
+                      <div key={group.label} className="revise__group">
+                        <div className="revise__group-label">{group.label}行</div>
+                        <div className="revise__grid">
+                          {cards.map((card) => (
+                            <div key={card.hiragana} className="revise__card">
+                              <span className="revise__character">{card.hiragana}</span>
+                              <span className="revise__romaji">{card.romaji}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="revise__actions">
                   <button className="button" onClick={() => navigate("/")}>Back to decks</button>

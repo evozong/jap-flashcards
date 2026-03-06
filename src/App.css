@@ -375,10 +375,28 @@ body {
   margin: 0;
 }
 
+.revise__groups {
+  display: grid;
+  gap: 20px;
+}
+
+.revise__group {
+  display: grid;
+  gap: 8px;
+}
+
+.revise__group-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .revise__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
 }
 
 .revise__card {
