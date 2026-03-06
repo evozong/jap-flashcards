@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { useGoogleAuth } from "./useGoogleAuth";
 import { Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
@@ -160,7 +160,8 @@ function DeckPicker() {
             <Link to={`/decks/${key}`} className="deck-card__name">{deckInfo.label}</Link>
             <p className="deck-card__count">{deckInfo.cards.length} characters</p>
             <div className="deck-card__actions">
-              <button className="button" onClick={() => navigate(`/decks/${key}/play`)}>Play</button>
+              <button className="button" onClick={() => navigate(`/decks/${key}/play`)}>Play Lv.1</button>
+              <button className="button" onClick={() => navigate(`/decks/${key}/play2`)}>Play Lv.2</button>
               <button className="button deck-card__revise" onClick={() => navigate(`/decks/${key}/revise`)}>Revise</button>
             </div>
           </div>
@@ -182,7 +183,8 @@ function DeckDetail() {
       <h2>{deckInfo.label}</h2>
       <p className="deck-detail__count">{deckInfo.cards.length} characters</p>
       <div className="deck-detail__actions">
-        <button className="button" onClick={() => navigate(`/decks/${deckName}/play`)}>Play</button>
+        <button className="button" onClick={() => navigate(`/decks/${deckName}/play`)}>Play Lv.1</button>
+        <button className="button" onClick={() => navigate(`/decks/${deckName}/play2`)}>Play Lv.2</button>
         <button className="button" onClick={() => navigate(`/decks/${deckName}/revise`)}>Revise</button>
       </div>
     </main>
@@ -227,7 +229,8 @@ function ReviseView() {
       </div>
       <div className="revise__actions">
         <button className="button" onClick={() => navigate(`/decks/${deckName}`)}>Back to deck</button>
-        <button className="button" onClick={() => navigate(`/decks/${deckName}/play`)}>Play this deck</button>
+        <button className="button" onClick={() => navigate(`/decks/${deckName}/play`)}>Play Lv.1</button>
+        <button className="button" onClick={() => navigate(`/decks/${deckName}/play2`)}>Play Lv.2</button>
       </div>
     </main>
   );
@@ -436,6 +439,243 @@ function PlayGame() {
   );
 }
 
+function checkAnswer(input: string, romaji: string): boolean {
+  const normalized = input.trim().toLowerCase();
+  if (normalized === romaji.toLowerCase()) return true;
+  // Handle parenthetical alternatives like "ji (di)" or "zu (du)"
+  const match = romaji.match(/^(\S+)\s*\((\S+)\)$/);
+  if (match) {
+    return normalized === match[1].toLowerCase() || normalized === match[2].toLowerCase();
+  }
+  return false;
+}
+
+function PlayGame2() {
+  const { deckName } = useParams<{ deckName: string }>();
+  const navigate = useNavigate();
+  const deckInfo = deckName ? DECKS[deckName as keyof typeof DECKS] : null;
+
+  const [gameKey, setGameKey] = useState(0);
+  const [deck, setDeck] = useState<Card[]>([]);
+  const [index, setIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [inputValue, setInputValue] = useState("");
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [history, setHistory] = useState<{ card: Card; chosen: string; correct: boolean }[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(() => getStoredReviewPref());
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!deckInfo) { navigate('/', { replace: true }); return; }
+    setDeck(pickN(deckInfo.cards, ROUND_SIZE));
+    setIndex(0);
+    setScore(0);
+    setInputValue("");
+    setShowAnswer(false);
+    setIsCorrect(null);
+    setHistory([]);
+    setCountdown(null);
+    setReviewOpen(getStoredReviewPref());
+  }, [deckName, gameKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const current = deck[index];
+  const isFinished = deck.length > 0 && index >= deck.length;
+
+  const next = useCallback(() => {
+    setInputValue("");
+    setShowAnswer(false);
+    setIsCorrect(null);
+    setIndex((i) => i + 1);
+    setCountdown(null);
+  }, []);
+
+  const handleSubmit = () => {
+    if (showAnswer || !current) return;
+    const correct = checkAnswer(inputValue, current.romaji);
+    if (correct) setScore((s) => s + 1);
+    setIsCorrect(correct);
+    setHistory((h) => [...h, { card: current, chosen: inputValue.trim(), correct }]);
+    setShowAnswer(true);
+    setCountdown(2);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleSubmit();
+  };
+
+  useEffect(() => {
+    if (!showAnswer && !isFinished && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [showAnswer, isFinished, index]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!deckInfo || isFinished) return;
+    window.localStorage.setItem(REVIEW_PREF_KEY, String(reviewOpen));
+  }, [reviewOpen, deckInfo, isFinished]);
+
+  useEffect(() => {
+    if (!showAnswer || countdown === null || isFinished) return;
+
+    const intervalId = setInterval(() => {
+      setCountdown((c) => {
+        if (c === null) return null;
+        if (c <= 1) {
+          clearInterval(intervalId);
+          next();
+          return null;
+        }
+        return c - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [showAnswer, countdown, isFinished, next]);
+
+  if (!deckInfo) return null;
+
+  const reviewExpanded = isFinished ? true : reviewOpen;
+
+  return (
+    <>
+      <div className="app__stats">
+        <span className="app__stat">
+          <strong>Deck</strong> {deckInfo.label}
+        </span>
+        <span className="app__stat">
+          <strong>Round</strong> {Math.min(index + 1, deck.length)}/{deck.length}
+        </span>
+        <span className="app__stat">
+          <strong>Score</strong> {score}
+        </span>
+        <span className="app__stat app__stat--level">
+          Level 2
+        </span>
+      </div>
+
+      {!isFinished && current && (
+        <main>
+          <section className="question">
+            <div className="question__prompt">Type the romaji for this hiragana:</div>
+            <div className="question__character">{current.hiragana}</div>
+          </section>
+
+          <section className="type-answer">
+            <input
+              ref={inputRef}
+              className={[
+                "type-answer__input",
+                showAnswer && isCorrect ? "type-answer__input--correct" : "",
+                showAnswer && !isCorrect ? "type-answer__input--incorrect" : "",
+              ].filter(Boolean).join(" ")}
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={showAnswer}
+              placeholder="e.g. ka"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+            />
+            {!showAnswer && (
+              <button className="button" onClick={handleSubmit} disabled={inputValue.trim() === ""}>
+                Check
+              </button>
+            )}
+            {showAnswer && (
+              <div className="type-answer__feedback">
+                {isCorrect ? (
+                  <span className="type-answer__result type-answer__result--correct">✅ Correct!</span>
+                ) : (
+                  <span className="type-answer__result type-answer__result--incorrect">
+                    ❌ Answer: <strong>{current.romaji}</strong>
+                  </span>
+                )}
+              </div>
+            )}
+          </section>
+
+          <div className="action-row">
+            {showAnswer ? (
+              <div className="actions">
+                <button className="button" onClick={next}>
+                  {showAnswer && countdown !== null
+                    ? `${index + 1 >= deck.length ? "Finish" : "Next"} (${countdown})`
+                    : index + 1 >= deck.length
+                      ? "Finish"
+                      : "Next"}
+                </button>
+              </div>
+            ) : (
+              <div className="actions actions--placeholder" aria-hidden="true" />
+            )}
+          </div>
+        </main>
+      )}
+
+      {isFinished && (
+        <section className="finished">
+          <h2>Round complete</h2>
+          <p>
+            You scored <strong>{score}</strong> out of <strong>{deck.length}</strong>.
+          </p>
+          <div className="finished__actions">
+            <button onClick={() => setGameKey((k) => k + 1)} className="button">
+              Play again
+            </button>
+            <button className="button" onClick={() => navigate('/')}>
+              Choose a different deck
+            </button>
+          </div>
+        </section>
+      )}
+
+      {deck.length > 0 && (
+        <section className="review review--persistent">
+          <button
+            className="review__header"
+            onClick={() => {
+              if (isFinished) return;
+              setReviewOpen((o) => !o);
+            }}
+            aria-expanded={reviewExpanded}
+          >
+            <span className={`review__arrow ${reviewExpanded ? "review__arrow--open" : ""}`}>▸</span>
+            <h2>Review answers</h2>
+          </button>
+          {reviewExpanded && (
+            <>
+              {history.length === 0 ? (
+                <p className="review__empty">No answers yet. Play to see your history.</p>
+              ) : (
+                <ul className="review__list">
+                  {[...history].reverse().map((h, i) => (
+                    <li key={i} className="review__item">
+                      <span className="review__character">{h.card.hiragana} {h.card.romaji}</span>
+                      <span>
+                        {h.correct ? (
+                          <>✅</>
+                        ) : (
+                          <> — You typed: <strong>{h.chosen}</strong> ❌</>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </section>
+      )}
+    </>
+  );
+}
+
 function App() {
   const { authError, userProfile, profileOpen, toggleProfile, signIn, signOut } = useGoogleAuth();
 
@@ -476,6 +716,7 @@ function App() {
         <Route path="/" element={<DeckPicker />} />
         <Route path="/decks/:deckName" element={<DeckDetail />} />
         <Route path="/decks/:deckName/play" element={<PlayGame />} />
+        <Route path="/decks/:deckName/play2" element={<PlayGame2 />} />
         <Route path="/decks/:deckName/revise" element={<ReviseView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
