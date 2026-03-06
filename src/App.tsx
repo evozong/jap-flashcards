@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { useGoogleAuth } from "./useGoogleAuth";
-import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 
 type Card = {
   hiragana: string;
@@ -121,7 +121,6 @@ const GOJUON_GROUPS: (string | null)[][] = [
 ];
 
 const REVIEW_PREF_KEY = "flashcards_review_open";
-const DECK_QUERY_KEY = "deck";
 const ROUND_SIZE = 10;
 
 const getStoredReviewPref = () => {
@@ -150,13 +149,96 @@ function makeChoices(all: Card[], correct: Card): string[] {
   return shuffle(choices);
 }
 
-
-function App() {
+function DeckPicker() {
   const navigate = useNavigate();
-  const location = useLocation();
+  return (
+    <main className="deck-picker">
+      <h2>Select a deck to begin</h2>
+      <div className="deck-picker__options">
+        {Object.entries(DECKS).map(([key, deckInfo]) => (
+          <div key={key} className="deck-card">
+            <Link to={`/decks/${key}`} className="deck-card__name">{deckInfo.label}</Link>
+            <p className="deck-card__count">{deckInfo.cards.length} characters</p>
+            <div className="deck-card__actions">
+              <button className="button" onClick={() => navigate(`/decks/${key}/play`)}>Play</button>
+              <button className="button deck-card__revise" onClick={() => navigate(`/decks/${key}/revise`)}>Revise</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+}
 
-  // prepare a deck for the round (10 unique cards)
-  const [activeDeckKey, setActiveDeckKey] = useState<keyof typeof DECKS | null>(null);
+function DeckDetail() {
+  const { deckName } = useParams<{ deckName: string }>();
+  const navigate = useNavigate();
+  const deckInfo = deckName ? DECKS[deckName as keyof typeof DECKS] : null;
+
+  if (!deckInfo) return <Navigate to="/" replace />;
+
+  return (
+    <main className="deck-detail">
+      <h2>{deckInfo.label}</h2>
+      <p className="deck-detail__count">{deckInfo.cards.length} characters</p>
+      <div className="deck-detail__actions">
+        <button className="button" onClick={() => navigate(`/decks/${deckName}/play`)}>Play</button>
+        <button className="button" onClick={() => navigate(`/decks/${deckName}/revise`)}>Revise</button>
+      </div>
+    </main>
+  );
+}
+
+function ReviseView() {
+  const { deckName } = useParams<{ deckName: string }>();
+  const navigate = useNavigate();
+  const deckInfo = deckName ? DECKS[deckName as keyof typeof DECKS] : null;
+
+  if (!deckInfo) return <Navigate to="/" replace />;
+
+  const cardMap = new Map(deckInfo.cards.map((c) => [c.hiragana, c]));
+
+  return (
+    <main className="revise">
+      <div className="revise__header">
+        <h2>{deckInfo.label}</h2>
+        <p className="revise__subtitle">{deckInfo.cards.length} characters</p>
+      </div>
+      <div className="revise__groups">
+        {GOJUON_GROUPS.map((row, rowIdx) => {
+          const hasAny = row.some((k) => k && cardMap.has(k));
+          if (!hasAny) return null;
+          return (
+            <div key={rowIdx} className="revise__grid">
+              {row.map((k, colIdx) => {
+                const card = k ? cardMap.get(k) : undefined;
+                return card ? (
+                  <div key={k} className="revise__card">
+                    <span className="revise__character">{card.hiragana}</span>
+                    <span className="revise__romaji">{card.romaji}</span>
+                  </div>
+                ) : (
+                  <div key={colIdx} className="revise__card revise__card--empty" />
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+      <div className="revise__actions">
+        <button className="button" onClick={() => navigate(`/decks/${deckName}`)}>Back to deck</button>
+        <button className="button" onClick={() => navigate(`/decks/${deckName}/play`)}>Play this deck</button>
+      </div>
+    </main>
+  );
+}
+
+function PlayGame() {
+  const { deckName } = useParams<{ deckName: string }>();
+  const navigate = useNavigate();
+  const deckInfo = deckName ? DECKS[deckName as keyof typeof DECKS] : null;
+
+  const [gameKey, setGameKey] = useState(0);
   const [deck, setDeck] = useState<Card[]>([]);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -165,11 +247,10 @@ function App() {
   const [history, setHistory] = useState<{ card: Card; chosen: string; correct: boolean }[]>([]);
   const [reviewOpen, setReviewOpen] = useState(() => getStoredReviewPref());
   const [countdown, setCountdown] = useState<number | null>(null);
-  const { authError, userProfile, profileOpen, toggleProfile, signIn, signOut } = useGoogleAuth();
 
-  const resetState = useCallback(() => {
-    setActiveDeckKey(null);
-    setDeck([]);
+  useEffect(() => {
+    if (!deckInfo) { navigate('/', { replace: true }); return; }
+    setDeck(pickN(deckInfo.cards, ROUND_SIZE));
     setIndex(0);
     setScore(0);
     setSelected(null);
@@ -177,52 +258,25 @@ function App() {
     setHistory([]);
     setCountdown(null);
     setReviewOpen(getStoredReviewPref());
-  }, []);
-
-  const applyDeck = useCallback((deckKey: keyof typeof DECKS) => {
-    setActiveDeckKey(deckKey);
-    setDeck(pickN(DECKS[deckKey].cards, ROUND_SIZE));
-    setIndex(0);
-    setScore(0);
-    setSelected(null);
-    setShowAnswer(false);
-    setHistory([]);
-    setCountdown(null);
-    setReviewOpen(getStoredReviewPref());
-  }, []);
-
-  const startGame = useCallback((deckKey: keyof typeof DECKS) => {
-    const targetSearch = `?${DECK_QUERY_KEY}=${deckKey}`;
-    const isOnPlay = location.pathname === "/play";
-    const isSameDeck = location.search === targetSearch;
-
-    if (isOnPlay && isSameDeck) {
-      applyDeck(deckKey);
-      return;
-    }
-
-    navigate({
-      pathname: "/play",
-      search: targetSearch,
-    });
-  }, [applyDeck, location.pathname, location.search, navigate]);
-
-  const newGame = useCallback(() => {
-    resetState();
-    navigate("/");
-  }, [navigate, resetState]);
-
-  const startRevise = useCallback((deckKey: keyof typeof DECKS) => {
-    navigate({ pathname: "/revise", search: `?${DECK_QUERY_KEY}=${deckKey}` });
-  }, [navigate]);
+  }, [deckName, gameKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const current = deck[index];
+  const isFinished = deck.length > 0 && index >= deck.length;
 
-  // memoize choices for current card so they don't change while user decides
-  const choices = useMemo(() => (current && activeDeckKey ? makeChoices(DECKS[activeDeckKey].cards, current) : []), [activeDeckKey, current]);
+  const choices = useMemo(
+    () => (current && deckInfo ? makeChoices(deckInfo.cards, current) : []),
+    [deckInfo, current]
+  );
+
+  const next = useCallback(() => {
+    setSelected(null);
+    setShowAnswer(false);
+    setIndex((i) => i + 1);
+    setCountdown(null);
+  }, []);
 
   const handleChoose = (choice: string) => {
-    if (showAnswer) return; // prevent re-selection
+    if (showAnswer) return;
     setSelected(choice);
     const correct = choice === current.romaji;
     if (correct) setScore((s) => s + 1);
@@ -231,27 +285,11 @@ function App() {
     setCountdown(2);
   };
 
-  const next = () => {
-    setSelected(null);
-    setShowAnswer(false);
-    setIndex((i) => i + 1);
-    setCountdown(null);
-  };
-
-  const isFinished = index >= deck.length;
-
-  useEffect(() => {
-    // if user reaches end, index === deck.length triggers finished state
-    if (index >= deck.length) {
-      // nothing else for now
-    }
-  }, [index, deck.length]);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!activeDeckKey || isFinished) return; // only persist during active play
+    if (!deckInfo || isFinished) return;
     window.localStorage.setItem(REVIEW_PREF_KEY, String(reviewOpen));
-  }, [reviewOpen, activeDeckKey, isFinished]);
+  }, [reviewOpen, deckInfo, isFinished]);
 
   useEffect(() => {
     if (!showAnswer || countdown === null || isFinished) return;
@@ -269,36 +307,137 @@ function App() {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [showAnswer, countdown, isFinished]);
+  }, [showAnswer, countdown, isFinished, next]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const deckKey = params.get(DECK_QUERY_KEY) as keyof typeof DECKS | null;
-
-    if (location.pathname === "/play") {
-      if (deckKey && DECKS[deckKey]) {
-        applyDeck(deckKey);
-      } else {
-        navigate("/", { replace: true });
-      }
-    } else {
-      resetState();
-    }
-  }, [location.pathname, location.search, applyDeck, resetState, navigate]);
+  if (!deckInfo) return null;
 
   const reviewExpanded = isFinished ? true : reviewOpen;
 
-  const handleProfileClick = () => {
-    toggleProfile();
-  };
+  return (
+    <>
+      <div className="app__stats">
+        <span className="app__stat">
+          <strong>Deck</strong> {deckInfo.label}
+        </span>
+        <span className="app__stat">
+          <strong>Round</strong> {Math.min(index + 1, deck.length)}/{deck.length}
+        </span>
+        <span className="app__stat">
+          <strong>Score</strong> {score}
+        </span>
+      </div>
 
-  const handleSignIn = () => {
-    signIn();
-  };
+      {!isFinished && current && (
+        <main>
+          <section className="question">
+            <div className="question__prompt">What is the romaji for this hiragana?</div>
+            <div className="question__character">{current.hiragana}</div>
+          </section>
 
-  const handleSignOut = () => {
-    signOut();
-  };
+          <section className="choices">
+            {choices.map((c) => {
+              const isCorrect = c === current.romaji;
+              const isSelected = c === selected;
+
+              const choiceClass = [
+                "choice-btn",
+                showAnswer && isCorrect ? "choice-btn--correct" : "",
+                showAnswer && isSelected && !isCorrect ? "choice-btn--incorrect" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+
+              return (
+                <button
+                  key={c}
+                  onClick={() => handleChoose(c)}
+                  disabled={showAnswer}
+                  className={choiceClass}
+                >
+                  {c}
+                </button>
+              );
+            })}
+          </section>
+
+          <div className="action-row">
+            {showAnswer ? (
+              <div className="actions">
+                <button className="button" onClick={next} disabled={!showAnswer}>
+                  {showAnswer && countdown !== null
+                    ? `${index + 1 >= deck.length ? "Finish" : "Next"} (${countdown})`
+                    : index + 1 >= deck.length
+                      ? "Finish"
+                      : "Next"}
+                </button>
+              </div>
+            ) : (
+              <div className="actions actions--placeholder" aria-hidden="true" />
+            )}
+          </div>
+        </main>
+      )}
+
+      {isFinished && (
+        <section className="finished">
+          <h2>Round complete</h2>
+          <p>
+            You scored <strong>{score}</strong> out of <strong>{deck.length}</strong>.
+          </p>
+          <div className="finished__actions">
+            <button onClick={() => setGameKey((k) => k + 1)} className="button">
+              Play again
+            </button>
+            <button className="button" onClick={() => navigate('/')}>
+              Choose a different deck
+            </button>
+          </div>
+        </section>
+      )}
+
+      {deck.length > 0 && (
+        <section className="review review--persistent">
+          <button
+            className="review__header"
+            onClick={() => {
+              if (isFinished) return;
+              setReviewOpen((o) => !o);
+            }}
+            aria-expanded={reviewExpanded}
+          >
+            <span className={`review__arrow ${reviewExpanded ? "review__arrow--open" : ""}`}>▸</span>
+            <h2>Review answers</h2>
+          </button>
+          {reviewExpanded && (
+            <>
+              {history.length === 0 ? (
+                <p className="review__empty">No answers yet. Play to see your history.</p>
+              ) : (
+                <ul className="review__list">
+                  {[...history].reverse().map((h, i) => (
+                    <li key={i} className="review__item">
+                      <span className="review__character">{h.card.hiragana} {h.card.romaji}</span>
+                      <span>
+                        {h.correct ? (
+                          <>✅</>
+                        ) : (
+                          <> — You Chose: <strong>{h.chosen}</strong> ❌</>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </section>
+      )}
+    </>
+  );
+}
+
+function App() {
+  const { authError, userProfile, profileOpen, toggleProfile, signIn, signOut } = useGoogleAuth();
 
   return (
     <div className="app">
@@ -308,7 +447,7 @@ function App() {
             <Link to="/">Flashcards</Link>
           </h1>
           <div className="profile">
-            <button className="profile__button" onClick={handleProfileClick} aria-label="Profile">
+            <button className="profile__button" onClick={toggleProfile} aria-label="Profile">
               {userProfile?.picture ? (
                 <img src={userProfile.picture} alt={userProfile.name || "Profile"} className="profile__avatar" />
               ) : (
@@ -321,229 +460,27 @@ function App() {
                   <>
                     <div className="profile__name">{userProfile.name}</div>
                     <div className="profile__email">{userProfile.email}</div>
-                    <button className="button profile__signout" onClick={handleSignOut}>Sign out</button>
+                    <button className="button profile__signout" onClick={signOut}>Sign out</button>
                   </>
                 ) : (
-                  <button className="button profile__signout" onClick={handleSignIn}>Sign in</button>
+                  <button className="button profile__signout" onClick={signIn}>Sign in</button>
                 )}
               </div>
             )}
             {authError && <div className="profile__error">{authError}</div>}
           </div>
         </div>
-
-        <div className="app__stats">
-          {activeDeckKey && (
-            <>
-              <span className="app__stat">
-                <strong>Deck</strong> {DECKS[activeDeckKey].label}
-              </span>
-              <span className="app__stat">
-                <strong>Round</strong> {Math.min(index + 1, deck.length)}/{deck.length}
-              </span>
-              <span className="app__stat">
-                <strong>Score</strong> {score}
-              </span>
-            </>
-          )}
-        </div>
       </header>
 
       <Routes>
-        <Route
-          path="/"
-          element={
-            <main className="deck-picker">
-              <h2>Select a deck to begin</h2>
-              <div className="deck-picker__options">
-                {Object.entries(DECKS).map(([key, deckInfo]) => (
-                  <div key={key} className="deck-picker__row">
-                    <button className="button deck-picker__button" onClick={() => startGame(key as keyof typeof DECKS)}>
-                      {deckInfo.label}
-                    </button>
-                    <button className="button deck-picker__revise-btn" onClick={() => startRevise(key as keyof typeof DECKS)}>
-                      Revise
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </main>
-          }
-        />
-
-        <Route
-          path="/revise"
-          element={(() => {
-            const params = new URLSearchParams(location.search);
-            const deckKey = params.get(DECK_QUERY_KEY) as keyof typeof DECKS | null;
-            const deckInfo = deckKey && DECKS[deckKey] ? DECKS[deckKey] : null;
-
-            if (!deckInfo) return <Navigate to="/" replace />;
-
-            const cardMap = new Map(deckInfo.cards.map((c) => [c.hiragana, c]));
-
-            return (
-              <main className="revise">
-                <div className="revise__header">
-                  <h2>{deckInfo.label}</h2>
-                  <p className="revise__subtitle">{deckInfo.cards.length} characters</p>
-                </div>
-                <div className="revise__groups">
-                  {GOJUON_GROUPS.map((row, rowIdx) => {
-                    const hasAny = row.some((k) => k && cardMap.has(k));
-                    if (!hasAny) return null;
-                    return (
-                      <div key={rowIdx} className="revise__grid">
-                        {row.map((k, colIdx) => {
-                          const card = k ? cardMap.get(k) : undefined;
-                          return card ? (
-                            <div key={k} className="revise__card">
-                              <span className="revise__character">{card.hiragana}</span>
-                              <span className="revise__romaji">{card.romaji}</span>
-                            </div>
-                          ) : (
-                            <div key={colIdx} className="revise__card revise__card--empty" />
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="revise__actions">
-                  <button className="button" onClick={() => navigate("/")}>Back to decks</button>
-                  <button className="button" onClick={() => startGame(deckKey!)}>Play this deck</button>
-                </div>
-              </main>
-            );
-          })()}
-        />
-
-        <Route
-          path="/play"
-          element={
-            <>
-              {activeDeckKey && !isFinished && current && (
-                <main>
-                  <section className="question">
-                    <div className="question__prompt">What is the romaji for this hiragana?</div>
-                    <div className="question__character">{current.hiragana}</div>
-                  </section>
-
-                  <section className="choices">
-                    {choices.map((c) => {
-                      const isCorrect = c === current.romaji;
-                      const isSelected = c === selected;
-
-                      const choiceClass = [
-                        "choice-btn",
-                        showAnswer && isCorrect ? "choice-btn--correct" : "",
-                        showAnswer && isSelected && !isCorrect ? "choice-btn--incorrect" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ");
-
-                      return (
-                        <button
-                          key={c}
-                          onClick={() => handleChoose(c)}
-                          disabled={showAnswer}
-                          className={choiceClass}
-                        >
-                          {c}
-                        </button>
-                      );
-                    })}
-                  </section>
-
-                  <div className="action-row">
-                    {showAnswer ? (
-                      <div className="actions">
-                        <button
-                          className="button"
-                          onClick={next}
-                          disabled={!showAnswer}
-                        >
-                          {showAnswer && countdown !== null
-                            ? `${index + 1 >= deck.length ? "Finish" : "Next"} (${countdown})`
-                            : index + 1 >= deck.length
-                              ? "Finish"
-                              : "Next"}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="actions actions--placeholder" aria-hidden="true" />
-                    )}
-                  </div>
-                </main>
-              )}
-
-              {activeDeckKey && isFinished && (
-                <section className="finished">
-                  <h2>Round complete</h2>
-                  <p>
-                    You scored <strong>{score}</strong> out of <strong>{deck.length}</strong>.
-                  </p>
-                  <div className="finished__actions">
-                    <button onClick={() => activeDeckKey && startGame(activeDeckKey)} className="button">
-                      Play again
-                    </button>
-                    <button className="button" onClick={newGame}>
-                      Play a different deck
-                    </button>
-                  </div>
-                </section>
-              )}
-
-              {activeDeckKey && (
-                <section className="review review--persistent">
-                  <button
-                    className="review__header"
-                    onClick={() => {
-                      if (isFinished) return;
-                      setReviewOpen((o) => !o);
-                    }}
-                    aria-expanded={reviewExpanded}
-                  >
-                    <span className={`review__arrow ${reviewExpanded ? "review__arrow--open" : ""}`}>▸</span>
-                    <h2>Review answers</h2>
-                  </button>
-                  {reviewExpanded && (
-                    <>
-                      {history.length === 0 ? (
-                        <p className="review__empty">No answers yet. Play to see your history.</p>
-                      ) : (
-                        <ul className="review__list">
-                          {[...history].reverse().map((h, i) => (
-                            <li key={i} className="review__item">
-                              <span className="review__character">{h.card.hiragana} {h.card.romaji}</span>
-                              <span>
-                                {h.correct ? (
-                                  <>
-                                    ✅
-                                  </>
-                                ) : (
-                                  <>
-                                     — You Chose:{" "}
-                                    <strong>{h.chosen}</strong> ❌
-                                  </>
-                                )}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </>
-                  )}
-                </section>
-              )}
-            </>
-          }
-        />
-
+        <Route path="/" element={<DeckPicker />} />
+        <Route path="/decks/:deckName" element={<DeckDetail />} />
+        <Route path="/decks/:deckName/play" element={<PlayGame />} />
+        <Route path="/decks/:deckName/revise" element={<ReviseView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
-  )
+  );
 }
 
 export default App;
