@@ -160,9 +160,9 @@ function DeckPicker() {
             <Link to={`/decks/${key}`} className="deck-card__name">{deckInfo.label}</Link>
             <p className="deck-card__count">{deckInfo.cards.length} characters</p>
             <div className="deck-card__actions">
+              <button className="button deck-card__revise" onClick={() => navigate(`/decks/${key}/revise`)}>Revise</button>
               <button className="button" onClick={() => navigate(`/decks/${key}/play`)}>Play Lv.1</button>
               <button className="button" onClick={() => navigate(`/decks/${key}/play2`)}>Play Lv.2</button>
-              <button className="button deck-card__revise" onClick={() => navigate(`/decks/${key}/revise`)}>Revise</button>
             </div>
           </div>
         ))}
@@ -183,9 +183,9 @@ function DeckDetail() {
       <h2>{deckInfo.label}</h2>
       <p className="deck-detail__count">{deckInfo.cards.length} characters</p>
       <div className="deck-detail__actions">
+        <button className="button" onClick={() => navigate(`/decks/${deckName}/revise`)}>Revise</button>
         <button className="button" onClick={() => navigate(`/decks/${deckName}/play`)}>Play Lv.1</button>
         <button className="button" onClick={() => navigate(`/decks/${deckName}/play2`)}>Play Lv.2</button>
-        <button className="button" onClick={() => navigate(`/decks/${deckName}/revise`)}>Revise</button>
       </div>
     </main>
   );
