@@ -391,6 +391,9 @@ function PlayGame() {
             <button onClick={() => setGameKey((k) => k + 1)} className="button">
               Play again
             </button>
+            <button className="button" onClick={() => navigate(`/decks/${deckName}/revise`)}>
+              Revise
+            </button>
             <button className="button" onClick={() => navigate('/')}>
               Choose a different deck
             </button>
@@ -627,6 +630,9 @@ function PlayGame2() {
           <div className="finished__actions">
             <button onClick={() => setGameKey((k) => k + 1)} className="button">
               Play again
+            </button>
+            <button className="button" onClick={() => navigate(`/decks/${deckName}/revise`)}>
+              Revise
             </button>
             <button className="button" onClick={() => navigate('/')}>
               Choose a different deck
